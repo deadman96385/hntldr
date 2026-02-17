@@ -119,6 +119,7 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result["text"],
             parse_mode="HTML",
             reply_markup=result["reply_markup"],
+            link_preview_options=result["link_preview_options"],
         )
     except Exception as e:
         logger.error(f"Error summarizing {hn_id}: {e}", exc_info=True)
@@ -143,6 +144,7 @@ async def handle_hn_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result["text"],
                 parse_mode="HTML",
                 reply_markup=result["reply_markup"],
+                link_preview_options=result["link_preview_options"],
             )
         else:
             await thinking.delete()

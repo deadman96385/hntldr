@@ -87,6 +87,7 @@ async def poll_and_post(app: Application):
                     text=result["text"],
                     parse_mode="HTML",
                     reply_markup=result["reply_markup"],
+                    link_preview_options=result["link_preview_options"],
                 )
 
                 # Register for live updates

@@ -10,7 +10,7 @@ from telegram.error import BadRequest, RetryAfter
 
 from config import config
 from fetcher import fetch_hn_item
-from formatter import build_update_buttons, format_update_text, HN_ITEM_URL
+from formatter import build_update_buttons, build_update_link_preview, format_update_text, HN_ITEM_URL
 from store import Store
 from summarizer import Summary
 from errors import notify_admin
@@ -51,9 +51,11 @@ async def update_worker(bot: Bot):
             if new_score != task["score"] or new_comments != task["comments"]:
                 summary = Summary(hook=task["hook"])
                 hn_url = HN_ITEM_URL.format(hn_id=hn_id)
+                link_url = task["url"] or hn_url
 
-                text = format_update_text(task["title"], summary, new_score)
+                text = format_update_text(task["title"], summary, new_score, link_url)
                 buttons = build_update_buttons(task["url"], hn_url, new_comments)
+                link_preview = build_update_link_preview(link_url)
 
                 try:
                     await bot.edit_message_text(
@@ -62,6 +64,7 @@ async def update_worker(bot: Bot):
                         text=text,
                         parse_mode="HTML",
                         reply_markup=buttons,
+                        link_preview_options=link_preview,
                     )
                 except RetryAfter as e:
                     retry_after_raw = e.retry_after
