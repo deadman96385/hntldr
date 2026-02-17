@@ -8,7 +8,7 @@ import logging
 import re
 import sys
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from config import config
@@ -161,6 +161,16 @@ def main():
         .token(config.telegram_token)
         .build()
     )
+
+    async def _post_init(application: Application):
+        await application.bot.set_my_commands([
+            BotCommand("start", "Show intro and usage"),
+            BotCommand("help", "Show help"),
+            BotCommand("summarize", "Summarize an HN story (admin only)"),
+        ])
+        logger.info("Registered bot command menu entries")
+
+    app.post_init = _post_init
 
     async def _post_shutdown(application: Application):
         await close_http_session()

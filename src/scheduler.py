@@ -130,6 +130,7 @@ async def poll_and_post(app: Application):
 def start_scheduler(app: Application):
     """Start the background polling scheduler."""
     scheduler = AsyncIOScheduler()
+    previous_post_init = app.post_init
 
     scheduler.add_job(
         poll_and_post,
@@ -142,6 +143,9 @@ def start_scheduler(app: Application):
     )
 
     async def _start_scheduler(application: Application):
+        if previous_post_init:
+            await previous_post_init(application)
+
         scheduler.start()
         logger.info(
             f"Scheduler started — polling every {config.poll_interval_minutes} minutes, "
