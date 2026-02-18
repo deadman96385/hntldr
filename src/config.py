@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env", override=False)
 
 
-def _parse_admin_ids(raw: str) -> set[int]:
-    """Parse comma-separated user IDs into a set of ints."""
+def _parse_int_csv(raw: str, label: str) -> set[int]:
+    """Parse comma-separated integer values into a set."""
     if not raw.strip():
         return set()
 
@@ -27,7 +27,7 @@ def _parse_admin_ids(raw: str) -> set[int]:
             invalid.append(token)
 
     if invalid:
-        raise ValueError(f"ADMIN_USER_ID contains invalid values: {', '.join(invalid)}")
+        raise ValueError(f"{label} contains invalid values: {', '.join(invalid)}")
 
     return parsed
 
@@ -44,7 +44,10 @@ class Config:
     llm_max_tokens: int = field(default_factory=lambda: int(os.environ.get("LLM_MAX_TOKENS", "300")))
 
     # --- Admin (comma-separated user IDs, e.g. "1234,4321,5555") ---
-    admin_user_ids: set[int] = field(default_factory=lambda: _parse_admin_ids(os.environ.get("ADMIN_USER_ID", "")))
+    admin_user_ids: set[int] = field(default_factory=lambda: _parse_int_csv(os.environ.get("ADMIN_USER_ID", ""), "ADMIN_USER_ID"))
+
+    # --- Whitelisted channels/groups where anyone can use the bot ---
+    whitelisted_chat_ids: set[int] = field(default_factory=lambda: _parse_int_csv(os.environ.get("WHITELISTED_CHAT_IDS", ""), "WHITELISTED_CHAT_IDS"))
 
     # --- Optional ---
     telegram_channel_id: str = field(default_factory=lambda: os.environ.get("TELEGRAM_CHANNEL_ID", ""))
@@ -53,7 +56,10 @@ class Config:
         default_factory=lambda: int(os.environ.get("POLL_INTERVAL_MINUTES", "60"))
     )
 
-    # --- Per-topic score thresholds ---
+    # --- Flame emoji thresholds (score for 🔥, 🔥🔥, 🔥🔥🔥) ---
+    flame_threshold_1: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_1", "50")))
+    flame_threshold_2: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_2", "100")))
+    flame_threshold_3: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_3", "200")))
     min_score_default: int = field(default_factory=lambda: int(os.environ.get("MIN_SCORE_DEFAULT", "100")))
     min_score_show_hn: int = field(default_factory=lambda: int(os.environ.get("MIN_SCORE_SHOW_HN", "50")))
     min_score_ask_hn: int = field(default_factory=lambda: int(os.environ.get("MIN_SCORE_ASK_HN", "100")))
@@ -89,8 +95,16 @@ class Config:
         return mapping.get(topic, self.min_score_default)
 
     def is_admin(self, user_id: int) -> bool:
-        """Check if a user ID is in the admin set."""
+        """Check if a user ID is in the admin set. Unrestricted if no admins configured."""
+        if not self.admin_user_ids:
+            return True
         return user_id in self.admin_user_ids
+
+    def is_whitelisted_chat(self, chat_id: int) -> bool:
+        """Check if a chat is whitelisted. Always True for DMs (positive IDs)."""
+        if chat_id > 0:
+            return True
+        return chat_id in self.whitelisted_chat_ids
 
     def validate(self):
         """Fail fast on missing or invalid configuration."""
