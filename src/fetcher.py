@@ -4,7 +4,9 @@ Uses trafilatura for best-in-class article extraction.
 """
 
 import asyncio
+import html as html_mod
 import logging
+import re
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -148,12 +150,15 @@ async def fetch_hn_item(item_id: str) -> Optional[dict]:
                 data = await resp.json()
                 if not data:
                     return None
+                if data.get("dead") or data.get("deleted"):
+                    logger.debug(f"Skipping dead/deleted item {item_id}")
+                    return None
                 return {
                     "id": str(item_id),
                     "title": data.get("title", ""),
                     "url": data.get("url", ""),
                     "points": data.get("score", 0),
-                    "num_comments": len(data.get("kids", [])),
+                    "num_comments": data.get("descendants") or len(data.get("kids", [])),
                     "by": data.get("by", ""),
                     "text": data.get("text", ""),
                     "type": data.get("type", "story"),
@@ -281,3 +286,38 @@ def _scrape_with_trafilatura(url: str) -> str:
     except Exception as e:
         logger.debug(f"trafilatura error: {e}")
         return ""
+
+
+def _strip_html(text: str) -> str:
+    """Strip HTML tags, unescape entities, and normalize whitespace."""
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html_mod.unescape(text)
+    return " ".join(text.split())
+
+
+async def fetch_first_comment(item_id: str) -> Optional[dict]:
+    """Fetch the top comment for an HN item via Algolia. Returns {author, text} or None."""
+    try:
+        session = await get_http_session()
+        async with session.get(f"{HN_ALGOLIA_BASE}/items/{item_id}") as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            children = data.get("children")
+            if not children:
+                return None
+            first = children[0]
+            raw_text = first.get("text") or ""
+            author = first.get("author") or "anon"
+            clean = _strip_html(raw_text)
+            if not clean:
+                return None
+            # Truncate to fit Telegram popup (200 char limit, leave room for author)
+            prefix = f"{author}: "
+            max_text = 200 - len(prefix)
+            if len(clean) > max_text:
+                clean = clean[: max_text - 1] + "\u2026"
+            return {"author": author, "text": clean}
+    except Exception as e:
+        logger.warning(f"Failed to fetch first comment for {item_id}: {e}")
+        return None

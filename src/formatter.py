@@ -33,7 +33,7 @@ def format_telegram_message(
     hn_url = HN_ITEM_URL.format(hn_id=hn_id)
     link_url = url or hn_url
     text = _build_text(title, summary, score, link_url)
-    reply_markup = _build_buttons(url, hn_url, comments)
+    reply_markup = _build_buttons(url, hn_url, comments, hn_id)
     link_preview_options = _build_link_preview(link_url)
 
     return {
@@ -94,7 +94,7 @@ def _build_link_preview(url: str) -> LinkPreviewOptions:
     )
 
 
-def _build_buttons(url: str, hn_url: str, comments: int) -> InlineKeyboardMarkup:
+def _build_buttons(url: str, hn_url: str, comments: int, hn_id: str = "") -> InlineKeyboardMarkup:
     """Build inline keyboard buttons."""
     if url:
         buttons = [
@@ -103,12 +103,15 @@ def _build_buttons(url: str, hn_url: str, comments: int) -> InlineKeyboardMarkup
         ]
     else:
         buttons = [InlineKeyboardButton("Read on HN", url=hn_url)]
-    return InlineKeyboardMarkup([buttons])
+    rows = [buttons]
+    if comments > 0 and hn_id:
+        rows.append([InlineKeyboardButton("1st Comment", callback_data=f"comment:{hn_id}")])
+    return InlineKeyboardMarkup(rows)
 
 
-def build_update_buttons(url: str, hn_url: str, comments: int) -> InlineKeyboardMarkup:
+def build_update_buttons(url: str, hn_url: str, comments: int, hn_id: str = "") -> InlineKeyboardMarkup:
     """Public helper for updater — rebuilds buttons with fresh comment count."""
-    return _build_buttons(url, hn_url, comments)
+    return _build_buttons(url, hn_url, comments, hn_id)
 
 
 def format_update_text(title: str, summary: Summary, score: int, link_url: str = "") -> str:

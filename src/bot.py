@@ -23,7 +23,7 @@ from telegram.ext import (
 
 from config import config
 from config_manager import CATEGORY_ORDER, EDITABLE_KEY_SPECS, config_manager
-from fetcher import fetch_hn_item, fetch_article_content, close_http_session
+from fetcher import fetch_hn_item, fetch_article_content, fetch_first_comment, close_http_session
 from summarizer import summarize_article, Summary
 from scheduler import start_scheduler
 from formatter import format_telegram_message
@@ -695,6 +695,24 @@ async def handle_hn_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await thinking.edit_text(f"Could not fetch: {str(e)[:200]}")
 
 
+async def cb_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle '1st Comment' button presses — show top comment in a popup."""
+    if not update.callback_query:
+        return
+    query = update.callback_query
+    data = query.data or ""
+    hn_id = data.removeprefix("comment:")
+    if not hn_id:
+        await query.answer("Invalid request.", show_alert=True)
+        return
+
+    comment = await fetch_first_comment(hn_id)
+    if comment:
+        await query.answer(text=f"{comment['author']}: {comment['text']}", show_alert=True)
+    else:
+        await query.answer(text="No comments yet.", show_alert=True)
+
+
 def main():
     # Validation is handled by config.validate() at import time
 
@@ -727,6 +745,7 @@ def main():
     app.add_handler(CommandHandler("summarize", cmd_summarize))
     app.add_handler(CommandHandler("settings", cmd_settings))
     app.add_handler(CallbackQueryHandler(cb_settings, pattern=r"^settings:"))
+    app.add_handler(CallbackQueryHandler(cb_comment, pattern=r"^comment:"))
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND & SettingsInputFilter(), handle_settings_input))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.Regex(r"ycombinator\.com/item"),

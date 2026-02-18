@@ -54,7 +54,7 @@ async def update_worker(bot: Bot):
                 link_url = task["url"] or hn_url
 
                 text = format_update_text(task["title"], summary, new_score, link_url)
-                buttons = build_update_buttons(task["url"], hn_url, new_comments)
+                buttons = build_update_buttons(task["url"], hn_url, new_comments, hn_id)
                 link_preview = build_update_link_preview(link_url)
 
                 try:
