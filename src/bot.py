@@ -36,10 +36,12 @@ logging.basicConfig(
 logger = logging.getLogger("hntldr.bot")
 
 SETTINGS_TTL_SECONDS = 600
+LOOKUP_CACHE_TTL_SECONDS = 1800
 
 SETTINGS_SESSIONS: dict[int, dict] = {}
 SETTINGS_PENDING_INPUTS: dict[int, dict] = {}
 SETTINGS_PENDING_RESTART: set[str] = set()
+ENTITY_LOOKUP_CACHE: dict[int, tuple[str, float]] = {}
 
 
 class SettingsInputFilter(filters.MessageFilter):
@@ -104,6 +106,51 @@ def _format_value(env_key: str) -> str:
     return str(value)
 
 
+def _format_display_name(name: str, entity_id: int) -> str:
+    trimmed = " ".join(name.split())
+    if len(trimmed) > 28:
+        trimmed = trimmed[:25] + "..."
+    return f"{trimmed} ({entity_id})"
+
+
+async def _resolve_entity_name(bot, entity_id: int) -> str:
+    cached = ENTITY_LOOKUP_CACHE.get(entity_id)
+    now = time.time()
+    if cached and (now - cached[1] < LOOKUP_CACHE_TTL_SECONDS):
+        return cached[0]
+
+    label = str(entity_id)
+    try:
+        chat = await bot.get_chat(entity_id)
+        display = ""
+        if getattr(chat, "title", ""):
+            display = chat.title
+        else:
+            first = getattr(chat, "first_name", "") or ""
+            last = getattr(chat, "last_name", "") or ""
+            username = getattr(chat, "username", "") or ""
+            full = f"{first} {last}".strip()
+            display = full or (f"@{username}" if username else "")
+        if display:
+            label = _format_display_name(display, entity_id)
+    except Exception:
+        label = str(entity_id)
+
+    ENTITY_LOOKUP_CACHE[entity_id] = (label, now)
+    return label
+
+
+async def _format_set_value_with_names(bot, env_key: str) -> str:
+    values = sorted(config_manager.get_value(env_key))
+    if not values:
+        return "(empty)"
+
+    labels: list[str] = []
+    for entity_id in values:
+        labels.append(await _resolve_entity_name(bot, entity_id))
+    return ", ".join(labels)
+
+
 def _main_settings_text() -> str:
     lines = [
         "<b>Bot Settings</b>",
@@ -144,10 +191,14 @@ def _category_title(category: str) -> str:
     return mapping.get(category, category)
 
 
-def _category_settings_text(category: str) -> str:
+async def _category_settings_text(category: str, bot) -> str:
     lines = [f"<b>{_category_title(category)}</b>"]
     for spec in config_manager.keys_for_category(category):
-        safe_value = html.escape(_format_value(spec.env_key))
+        if spec.value_type == "int_set":
+            rendered = await _format_set_value_with_names(bot, spec.env_key)
+        else:
+            rendered = _format_value(spec.env_key)
+        safe_value = html.escape(rendered)
         lines.append(f"- <code>{spec.env_key}</code>: <code>{safe_value}</code>")
     if any(EDITABLE_KEY_SPECS[key].restart_required for key in CATEGORY_ORDER.get(category, [])):
         lines.append("")
@@ -155,7 +206,7 @@ def _category_settings_text(category: str) -> str:
     return "\n".join(lines)
 
 
-def _category_settings_markup(category: str, sid: str, user_id: int) -> InlineKeyboardMarkup:
+async def _category_settings_markup(category: str, sid: str, user_id: int, bot) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for spec in config_manager.keys_for_category(category):
         value_text = _format_value(spec.env_key)
@@ -184,10 +235,11 @@ def _category_settings_markup(category: str, sid: str, user_id: int) -> InlineKe
                 remove_cb = f"settings:{sid}:remove:{spec.env_key}:{set_value}"
                 if spec.env_key == "ADMIN_USER_ID" and (set_value == user_id or len(current_values) <= 1):
                     remove_cb = f"settings:{sid}:noop"
+                friendly = await _resolve_entity_name(bot, set_value)
                 rows.append(
                     [
                         InlineKeyboardButton(
-                            f"Remove {set_value}",
+                            f"Remove {friendly}",
                             callback_data=remove_cb,
                         )
                     ]
@@ -247,10 +299,12 @@ async def _show_claim_admin_screen(update: Update, sid: str):
 async def _show_category(update: Update, category: str, sid: str, user_id: int):
     if not update.callback_query:
         return
+    text = await _category_settings_text(category, update.get_bot())
+    markup = await _category_settings_markup(category, sid, user_id, update.get_bot())
     await update.callback_query.edit_message_text(
-        _category_settings_text(category),
+        text,
         parse_mode="HTML",
-        reply_markup=_category_settings_markup(category, sid, user_id),
+        reply_markup=markup,
     )
 
 
@@ -478,9 +532,9 @@ async def handle_settings_input(update: Update, context: ContextTypes.DEFAULT_TY
         await context.bot.edit_message_text(
             chat_id=session["chat_id"],
             message_id=session["message_id"],
-            text=_category_settings_text(category),
+            text=await _category_settings_text(category, context.bot),
             parse_mode="HTML",
-            reply_markup=_category_settings_markup(category, sid, user_id),
+            reply_markup=await _category_settings_markup(category, sid, user_id, context.bot),
         )
     except Exception:
         pass
