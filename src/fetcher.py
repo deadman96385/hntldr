@@ -123,12 +123,15 @@ async def fetch_hn_item(item_id: str) -> Optional[dict]:
         async with session.get(f"{HN_ALGOLIA_BASE}/items/{item_id}") as resp:
             if resp.status == 200:
                 data = await resp.json()
+                comments = data.get("num_comments")
+                if comments is None:
+                    comments = await _fetch_firebase_comment_count(item_id)
                 return {
                     "id": str(item_id),
                     "title": data.get("title") or data.get("story_title", ""),
                     "url": data.get("url") or data.get("story_url", ""),
                     "points": data.get("points") or 0,
-                    "num_comments": data.get("num_comments") or 0,
+                    "num_comments": comments or 0,
                     "by": data.get("author", ""),
                     "text": data.get("text", ""),  # for Ask HN / text posts
                     "type": data.get("type", "story"),
@@ -160,6 +163,24 @@ async def fetch_hn_item(item_id: str) -> Optional[dict]:
         logger.error(f"Firebase fetch failed for {item_id}: {e}")
 
     return None
+
+
+async def _fetch_firebase_comment_count(item_id: str) -> int | None:
+    """Fetch comment count from Firebase (`kids`) as a consistency fallback."""
+    try:
+        session = await get_http_session()
+        async with session.get(f"{HN_API_BASE}/item/{item_id}.json") as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            if not data:
+                return None
+            kids = data.get("kids")
+            if not isinstance(kids, list):
+                return 0
+            return len(kids)
+    except Exception:
+        return None
 
 
 async def fetch_top_story_ids(limit: int = 30) -> list[int]:
