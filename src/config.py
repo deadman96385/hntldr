@@ -104,9 +104,7 @@ class Config:
         return mapping.get(topic, self.min_score_default)
 
     def is_admin(self, user_id: int) -> bool:
-        """Check if a user ID is in the admin set. Unrestricted if no admins configured."""
-        if not self.admin_user_ids:
-            return True
+        """Check if a user ID is in the admin set."""
         return user_id in self.admin_user_ids
 
     def is_whitelisted_chat(self, chat_id: int) -> bool:
