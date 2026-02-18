@@ -5,7 +5,6 @@ Store — SQLite-backed deduplication store and message update tracking.
 import sqlite3
 import logging
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 logger = logging.getLogger("hntldr.store")
 
@@ -78,24 +77,6 @@ class Store:
             )
             conn.commit()
         logger.debug(f"Marked {hn_id} as posted: {title[:50]}")
-
-    def get_recent(self, hours: int = 24) -> list[dict]:
-        """Get items posted in the last N hours."""
-        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-        with self._get_conn() as conn:
-            rows = conn.execute(
-                """SELECT hn_id, title, posted_at, score
-                   FROM posted_items
-                   WHERE posted_at > ?
-                   ORDER BY posted_at DESC""",
-                (cutoff,)
-            ).fetchall()
-            return [dict(r) for r in rows]
-
-    def count_posted(self) -> int:
-        """Total items ever posted."""
-        with self._get_conn() as conn:
-            return conn.execute("SELECT COUNT(*) FROM posted_items").fetchone()[0]
 
     def prune_old(self, days: int = 30):
         """Remove entries older than N days to keep DB small."""

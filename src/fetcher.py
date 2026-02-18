@@ -7,7 +7,6 @@ import asyncio
 import html as html_mod
 import logging
 import re
-from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
@@ -114,7 +113,7 @@ def _should_skip_url(url: str) -> bool:
     return False
 
 
-async def fetch_hn_item(item_id: str) -> Optional[dict]:
+async def fetch_hn_item(item_id: str) -> dict | None:
     """
     Fetch a single HN item. Returns normalized dict with:
     title, url, points, num_comments, by, time
@@ -295,7 +294,7 @@ def _strip_html(text: str) -> str:
     return " ".join(text.split())
 
 
-async def fetch_first_comment(item_id: str) -> Optional[dict]:
+async def fetch_first_comment(item_id: str) -> dict | None:
     """Fetch the top comment for an HN item via Algolia. Returns {author, text} or None."""
     try:
         session = await get_http_session()

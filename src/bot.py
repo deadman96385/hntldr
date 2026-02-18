@@ -516,8 +516,6 @@ async def handle_settings_input(update: Update, context: ContextTypes.DEFAULT_TY
             except ValueError as exc:
                 raise ValueError("Expected an integer ID") from exc
             restart_required = config_manager.add_to_set(env_key, add_value)
-        else:
-            raise ValueError("Unsupported input mode")
     except ValueError as exc:
         await update.message.reply_text(f"Invalid value: {exc}")
         return

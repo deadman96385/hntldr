@@ -3,7 +3,6 @@ Summarizer — the core of hntldr.
 Calls the configured LLM to produce a concise hook summary.
 """
 
-import asyncio
 import logging
 import re
 from dataclasses import dataclass
@@ -46,30 +45,18 @@ CONTENT_SECTION_TEMPLATE = "Article content (first {chars} chars):\n{content}"
 def _parse_summary(raw: str, title: str) -> Summary:
     """Parse HOOK format from LLM output. Falls back gracefully."""
     hook = ""
-    body = ""
 
     for line in raw.strip().splitlines():
         line = line.strip()
         if line.upper().startswith("HOOK:"):
             hook = line[5:].strip().strip('"\'')
-        elif line.upper().startswith("BODY:"):
-            body = line[5:].strip().strip('"\'')
 
     # If parsing failed, treat the whole response as plain text
-    if not hook and not body:
+    if not hook:
         text = raw.strip().strip('"\'')
         if text:
             sentences = re.split(r'(?<=[.!?])\s+', text)
-            if len(sentences) >= 2:
-                hook = sentences[0]
-                body = " ".join(sentences[1:])
-            else:
-                hook = text
-                body = ""
-
-    if not hook and body:
-        hook = body
-        body = ""
+            hook = sentences[0]
 
     # Keep hook concise: at most two sentences
     if hook:
