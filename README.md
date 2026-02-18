@@ -19,6 +19,7 @@ AsteroidOS 2.0 ships with always-on displays, expanded smartwatch hardware suppo
 
 - **Manual mode**: Send `/summarize <hn_url>` to the bot or just paste a HN link
 - **Auto mode**: Polls HN top stories on a schedule, posts new ones to a channel
+- **Admin settings menu**: Use `/settings` in DM to update most runtime config values from inline buttons
 - **Smart summaries**: Uses your configured LLM provider (Claude or OpenAI-compatible) for a concise 1-2 sentence summary (usually one sentence)
 - **Deduplication**: SQLite-backed store prevents reposts
 - **Graceful fallbacks**: Works even if article scraping fails (summarizes from title)
@@ -81,7 +82,8 @@ python src/bot.py
 
 | Command | Description |
 |---|---|
-| `/summarize <hn_url_or_id>` | Summarize a specific HN story (admin only) |
+| `/summarize <hn_url_or_id>` | Summarize a specific HN story |
+| `/settings` | Admin settings menu (DM only) |
 | `/start` | Show intro + usage |
 | `/help` | Show usage info |
 
@@ -114,7 +116,7 @@ The bot polls HN every `POLL_INTERVAL_MINUTES` minutes and posts up to `STORIES_
 | `LLM_MODEL` | `claude-haiku-4-5-20251001` | Model name for selected provider |
 | `LLM_API_KEY` | *required* | API key for selected provider |
 | `LLM_MAX_TOKENS` | `300` | Max response tokens for summaries |
-| `ADMIN_USER_ID` | *(empty)* | Comma-separated Telegram user IDs for `/summarize` + error DMs |
+| `ADMIN_USER_ID` | *(empty)* | Comma-separated Telegram admin user IDs; if empty on first boot, first DM user can claim admin in `/settings` |
 | `TELEGRAM_CHANNEL_ID` | *(empty)* | Channel to auto-post to |
 | `POLL_INTERVAL_MINUTES` | `60` | How often to check HN |
 | `MIN_SCORE_DEFAULT` | `100` | Default min score for auto-post |
