@@ -89,12 +89,25 @@ async def process_hn_item(hn_id: str) -> dict | None:
     )
 
 
+def _is_allowed(update: Update) -> bool:
+    """Check if the user is allowed to use the bot in this chat."""
+    chat_id = update.effective_chat.id if update.effective_chat else 0
+    user_id = update.effective_user.id if update.effective_user else 0
+
+    # Group/channel: must be whitelisted
+    if chat_id < 0:
+        return config.is_whitelisted_chat(chat_id)
+
+    # DM: admin check
+    return config.is_admin(user_id)
+
+
 async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /summarize <url_or_id> (admin only)"""
+    """Handle /summarize <url_or_id>"""
     if not update.message or not update.effective_user:
         return
 
-    if not config.is_admin(update.effective_user.id):
+    if not _is_allowed(update):
         await update.message.reply_text("This command is restricted.")
         return
 
@@ -129,6 +142,9 @@ async def cmd_summarize(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_hn_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Auto-detect HN URLs pasted into chat."""
     if not update.message:
+        return
+
+    if not _is_allowed(update):
         return
 
     text = update.message.text or ""

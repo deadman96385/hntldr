@@ -14,6 +14,7 @@ import html
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
 
 from summarizer import Summary
+from config import config
 
 HN_ITEM_URL = "https://news.ycombinator.com/item?id={hn_id}"
 
@@ -64,9 +65,20 @@ def _build_text(title: str, summary: Summary, score: int, link_url: str = "") ->
         lines.append(safe_hook)
 
     lines.append("")
-    lines.append(f"<b>{score} points</b>")
+    lines.append(_score_flames(score))
 
     return "\n".join(lines)
+
+
+def _score_flames(score: int) -> str:
+    """Convert score to flame emojis indicating popularity."""
+    if score >= config.flame_threshold_3:
+        return "\U0001f525" * 3
+    if score >= config.flame_threshold_2:
+        return "\U0001f525" * 2
+    if score >= config.flame_threshold_1:
+        return "\U0001f525"
+    return ""
 
 
 def _build_link_preview(url: str) -> LinkPreviewOptions:
@@ -74,7 +86,7 @@ def _build_link_preview(url: str) -> LinkPreviewOptions:
     return LinkPreviewOptions(
         url=url,
         prefer_small_media=True,
-        show_above_text=True,
+        show_above_text=False,
     )
 
 
