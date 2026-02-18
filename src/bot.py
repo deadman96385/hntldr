@@ -53,6 +53,14 @@ class SettingsInputFilter(filters.MessageFilter):
         return message.from_user.id in SETTINGS_PENDING_INPUTS
 
 
+def _prune_expired_sessions():
+    now = time.time()
+    expired = [uid for uid, s in SETTINGS_SESSIONS.items() if now > s.get("expires_at", 0)]
+    for uid in expired:
+        SETTINGS_SESSIONS.pop(uid, None)
+        SETTINGS_PENDING_INPUTS.pop(uid, None)
+
+
 def _new_settings_session(user_id: int, chat_id: int) -> dict:
     sid = token_hex(4)
     session = {
@@ -331,6 +339,7 @@ async def _show_prompt(update: Update, sid: str, env_key: str, mode: str):
 
 
 async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _prune_expired_sessions()
     if not update.effective_user or not update.effective_chat:
         return
     if not _is_dm(update):
@@ -355,6 +364,7 @@ async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cb_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _prune_expired_sessions()
     if not update.callback_query or not update.effective_user or not update.effective_chat:
         return
 

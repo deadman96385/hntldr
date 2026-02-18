@@ -214,6 +214,8 @@ def _parse_input(spec: ConfigKeySpec, raw: str):
             raise ValueError(f"Value must be <= {spec.max_value}")
         return value
     if spec.value_type == "str":
+        if any(c in text for c in "\n\r\x00"):
+            raise ValueError("Value must not contain newlines or null bytes")
         return text
     if spec.value_type == "int_set":
         if not text:
