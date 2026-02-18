@@ -32,6 +32,14 @@ def _parse_int_csv(raw: str, label: str) -> set[int]:
     return parsed
 
 
+def _parse_bool(raw: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable value."""
+    value = raw.strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
 @dataclass
 class Config:
     # --- Required ---
@@ -57,6 +65,7 @@ class Config:
     )
 
     # --- Flame emoji thresholds (score for 🔥, 🔥🔥, 🔥🔥🔥) ---
+    show_flames: bool = field(default_factory=lambda: _parse_bool(os.environ.get("SHOW_FLAMES", "1"), default=True))
     flame_threshold_1: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_1", "50")))
     flame_threshold_2: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_2", "100")))
     flame_threshold_3: int = field(default_factory=lambda: int(os.environ.get("FLAME_THRESHOLD_3", "200")))

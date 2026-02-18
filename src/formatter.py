@@ -64,14 +64,18 @@ def _build_text(title: str, summary: Summary, score: int, link_url: str = "") ->
         lines.append("")
         lines.append(safe_hook)
 
-    lines.append("")
-    lines.append(_score_flames(score))
+    flame_text = _score_flames(score)
+    if flame_text:
+        lines.append("")
+        lines.append(flame_text)
 
     return "\n".join(lines)
 
 
 def _score_flames(score: int) -> str:
     """Convert score to flame emojis indicating popularity."""
+    if not config.show_flames:
+        return ""
     if score >= config.flame_threshold_3:
         return "\U0001f525" * 3
     if score >= config.flame_threshold_2:
